@@ -1,8 +1,10 @@
 package govalidate
 
 import (
+    "bytes"
     "encoding/json"
     "fmt"
+    "io"
     "net/http"
 )
 
@@ -17,8 +19,12 @@ type Validator struct {
 
 func (v Validator) ValidateJSON(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        var bodyBuf bytes.Buffer
+        body := io.TeeReader(r.Body, &bodyBuf)
+        r.Body = io.NopCloser(&bodyBuf)
+
         var data map[string]any
-        if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+        if err := json.NewDecoder(body).Decode(&data); err != nil {
             http.Error(w, "Invalid request payload (JSON expected)", http.StatusBadRequest)
             return
         }
