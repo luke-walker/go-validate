@@ -11,12 +11,16 @@ import (
 type FieldsMap map[string]map[string]any
 
 type Validator struct {
+    // required headers
+    Headers []string
+
     // field:
     //   required: bool
     //   type: type (WIP)
     Fields FieldsMap
 }
 
+/* TODO: figure out a good way to only parse URL-encoded form once (for both middleware and controller) */
 func (v Validator) ValidateData(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
         var data map[string]any
@@ -48,7 +52,13 @@ func (v Validator) ValidateData(next http.Handler) http.Handler {
             http.Error(w, fmt.Sprintf("Unsupported request payload (%s)", contentType), http.StatusBadRequest)
             return
         }
-
+        
+        for _, header := range v.Headers {
+            if _, ok := r.Header[header]; !ok {
+                http.Error(w, fmt.Sprintf("Missing required header '%s'", header), http.StatusBadRequest)
+                return
+            }
+        }
         for field, cons := range v.Fields {
             if _, ok := data[field]; !ok {
                 if required, ok := cons["required"].(bool); ok && required {
